@@ -1,6 +1,7 @@
-<!doctype html>
+﻿<!doctype html>
 <html>
 <head>
+    <meta charset="utf-8" />
     <link rel="stylesheet" href="/css/base.css">
     <style>
         input.toggle:checked ~ div.view label {
@@ -12,7 +13,7 @@
             background-color: white;
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/slipjs/2.0.0/slip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/slipjs/2.0.0/slip.min.js"></script> <!-- Wat doet dit precies?? -->
 </head>
 <body>
     <section class="todoapp">
@@ -24,16 +25,17 @@
                 </form>
             </header>
             <section class="main">
-                <ul class="todo-list" data-simply-list="todo">
+                <ul class="todo-list" data-simply-list="todo"> <!-- Hier herkent ie de view.todo -->
                     <template>
                         <li>
+                            <a data-simply-field="id">id</a>
                             <input type="checkbox" class="toggle" data-simply-field="completed" value="1">
                             <div class="view">
-                                <label data-simply-field="item">Item</label>
+                                <label data-simply-field="data.item">Item</label>
                                 <button class="edit" data-simply-command="editTodo"></button>
                                 <button class="destroy" data-simply-command="delTodo"></button>
                             </div>
-                            <input class="edit" data-simply-field="item" type="text" data-simply-command="showTodo">
+                            <input class="edit" data-simply-field="data.item" type="text" data-simply-command="showTodo">
                         </li>
                     </template>
                 </ul>
@@ -51,21 +53,38 @@
     <script src="https://unpkg.com/simplyview@2.0.1/dist/simply.everything.js"></script>
     <script src="https://cdn.simplyedit.io/1/simply-edit.js"></script>
     <script>
+        const api = simply.api.proxy({
+            baseURL:'http://backend.local/',
+            paramsFormat:'json',
+            responseFormat:'json',
+            mode:'cors',
+            verbs: ['get','post','put','patch','delete']
+            });
+
         var todoApp = simply.app({
             commands: {
                 addTodo: function(form, values) {
                     if (values.newItem.trim()) {
-                        todoApp.view.todo.push({
+                        var todoItem = {
+                            //Create ID
+                            //todoId : 2,
                             item : values.newItem.trim(),
                             completed : 0
-                        });
+                        }
+                        api.post(todoItem);                     //In database
+                        todoApp.view.todo.push(todoItem);       //Op website
                     }
                     form.newItem.value = '';
                 },
-                delTodo: function(el, value) {
-                    el.closest('ul').removeChild( el.closest('li') );
+                delTodo: function (el, value) {
+                    //Verwijder uit database 
+                    //nu alleen HTML
+                    //Need ID
+                    var id = todoApp.view.items
+                    el.closest('ul').removeChild(el.closest('li'));
                 },
-                editTodo: function(el, value) {
+                editTodo: function (el, value) {
+                    //Need ID
                     var item = el.closest('li');
                     var input = item.querySelector('input[type="text"]');
                     
@@ -92,19 +111,12 @@
                     el.blur();
                 }
             },
-            view: (function() {
-                var data = localStorage.getItem('simplyTodo');
-                if (!data) {
-                    data = '[]';
-                }
-                var items = JSON.parse(data) || [];
-                return {
-                    todo: items,
-                    count: items.length
-                };
-            })()
+            view: {}
+            
         });
-    
+
+        api.get().then(function (node) { todoApp.view.todo = Object.values(node.nodes); });
+
         // 3: update the counter whenever the list changes
         document.addEventListener('simply-data-changed', function(evt) {
             if (evt.data.arguments[0]=='todo') {
@@ -113,7 +125,9 @@
         });
 
         document.addEventListener('simply-data-changed', function(evt) {
-            localStorage.setItem('simplyTodo', JSON.stringify(todoApp.view.todo));
+            localStorage.setItem('simplyTodo', JSON.stringify(todoApp.view.todo));  //Hier Cache update
+
+            api.todo.put(todoApp.view.todo);                                         //Hier update ie de database met nieuwe waardes
         });
 
         // 6: drag and drop items to reorder them
