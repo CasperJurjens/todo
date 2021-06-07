@@ -17,11 +17,11 @@
             echo json_encode($value, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
         },
         'error' => function($message, $status) {
-            $this->response->status = $status;
-            echo json_encode(["error" => $message]);
+            $this->status = $status;
+            echo json_encode(["error" => $message])."\n";
         }
     ]);
-    
+
     header_register_callback(function() use ($arcResponse) {
         http_response_code($arcResponse->status);
         foreach($arcResponse->headers as $header => $headerValues) {
@@ -40,6 +40,7 @@
     
     $dbConf     = getenv('arc-rest-store');
     $arcStore   = \arc\store::connect($dbConf);
+    $arcStore->initialize();
 
     function uuidv4(){
         $data = random_bytes(16);
@@ -111,8 +112,8 @@
             // store it in the given path
             $parents = \arc\path::parents(\arc\path::parent($path));
             foreach ($parents as $parent) {
-                if (!$store->exists($parent)) {
-                    $store->save(null, $parent);
+                if (!$arcStore->exists($parent)) {
+                    $arcStore->save(null, $parent);
                 }
             }
 
@@ -154,7 +155,7 @@
         $arcResponse->addHeader('Access-Control-Allow-Headers','Authorization');
         $arcResponse->addHeader('Access-Control-Allow-Credentials','true');
 
-        $path = \arc\path::collapse($_SERVER['PATH_INFO'] ?: $arcRequest->url->path);
+        $path = \arc\path::collapse($_SERVER['PATH_INFO'] ?? '/');
         $restAPI->{strtolower($arcRequest->method)}($path);
 
     } catch (\arc\MethodNotFound $err) {
