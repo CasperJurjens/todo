@@ -17,7 +17,7 @@
 </head>
 <body>
     <section class="todoapp">
-        <div>
+        <div data-sim>
             <header class="header">
                 <h1>todos</h1>
                 <form id="form" data-simply-command="addTodo">
@@ -28,7 +28,8 @@
                 <ul class="todo-list" data-simply-list="todo"> <!-- Hier herkent ie de view.todo -->
                     <template>
                         <li>
-                            <a data-simply-field="id">id</a>
+                            <!-- <span data-simply-field="id">id</span> -->
+                            <span data-simply-field="path">path</span>
                             <input type="checkbox" class="toggle" data-simply-field="completed" value="1">
                             <div class="view">
                                 <label data-simply-field="data.item">Item</label>
@@ -80,7 +81,19 @@
                     //Verwijder uit database 
                     //nu alleen HTML
                     //Need ID
-                    var id = todoApp.view.items
+                    //api.delete(api.view.todo.id);
+                    //document.body.children[0].textContent;
+                    //alert(el.closest('ul').closest('li').children[0].textContent);
+                    //alert(el.parentElement.first)
+                    //var id = todoApp.view.items
+                    //alert('test a test neef');
+                    //alert(el.closest('ul').closest('li').textContent);
+                    var delIdSpan = el.parentElement.parentElement.getElementsByTagName('span')[0].innerText;
+                    var delId = 'http://backend.local/node/' + delIdSpan.replace('/', '');
+                    alert(delId);
+                    api.delete(delId);
+                        //.innerText);
+                        //.closest('li').firstChild.textContent);
                     el.closest('ul').removeChild(el.closest('li'));
                 },
                 editTodo: function (el, value) {
@@ -110,8 +123,8 @@
                     el.closest('li').classList.remove('editing');
                     el.blur();
                 }
-            },
-            view: {}
+            }//,
+            //view: {}
             
         });
 
