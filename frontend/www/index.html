@@ -28,21 +28,22 @@
                 <ul class="todo-list" data-simply-list="todo"> <!-- Hier herkent ie de view.todo -->
                     <template>
                         <li>
-                            <!-- <span data-simply-field="id">id</span> -->
-                            <span data-simply-field="path">path</span>
+                            <span data-simply-field="data.order">0</span>
+                            <input class="pathInput" data-simply-field="path" type="hidden" />
                             <input type="checkbox" class="toggle" data-simply-field="completed" value="1">
                             <div class="view">
                                 <label data-simply-field="data.item">Item</label>
                                 <button class="edit" data-simply-command="editTodo"></button>
                                 <button class="destroy" data-simply-command="delTodo"></button>
                             </div>
-                            <input class="edit" data-simply-field="data.item" type="text" data-simply-command="showTodo">
+                            <input class="edit" data-simply-field="data.item" type="text"> <!-- data-simply-command="showTodo" -->
                         </li>
                     </template>
                 </ul>
             </section>
             <footer class="footer">
                 <span class="todo-count" data-simply-field="count" data-simply-content="template" data-simply-default-template="other">
+                    Nothing left todo!                                                                                                    <!--Dit doet het niet tijdens eerste keer laden v pagina-->
                     <template data-simply-template="0">Nothing left todo!</template>
                     <template data-simply-template="1"><strong>1</strong> item left</template>
                     <template data-simply-template="other"><strong data-simply-field="count">n</strong> items left</template>
@@ -54,6 +55,11 @@
     <script src="https://unpkg.com/simplyview@2.0.1/dist/simply.everything.js"></script>
     <script src="https://cdn.simplyedit.io/1/simply-edit.js"></script>
     <script>
+        const grandparent = document.querySelector(".grandparent");
+
+        grandparent.addEventListener()
+
+
         const api = simply.api.proxy({
             baseURL:'http://backend.local/',
             paramsFormat:'json',
@@ -62,97 +68,141 @@
             verbs: ['get','post','put','patch','delete']
             });
 
+        //Zorg dat het in juiste volgorde opgevraagd / afgebeeld word 
+        api.get().then(function (node) {
+            todoApp.view.todo = Object.values(node.nodes);
+            todoApp.view.todo.sort(function (a, b) {
+                return a.data.order - b.data.order;
+            });
+            console.log(Object.values(node.nodes));
+        });
+
+            
         var todoApp = simply.app({
             commands: {
-                addTodo: function(form, values) {
+                addTodo: function (form, values) {
+                    //Geef hoogste volgorde waarde
+
                     if (values.newItem.trim()) {
-                        var todoItem = {
-                            //Create ID
-                            //todoId : 2,
-                            item : values.newItem.trim(),
-                            completed : 0
+                        var orderNum = 1;
+                        if (todoApp.view.count != null) {
+                            orderNum = todoApp.view.count + 1;
+                        } else {
+                            orderNum = 1;
                         }
-                        api.post(todoItem);                     //In database
-                        todoApp.view.todo.push(todoItem);       //Op website
+
+                        var todoItem = {
+                            item: values.newItem.trim(),
+                            completed: 0,
+                            order: orderNum
+                        };
+                        var path;
+                        api.post(todoItem).then(function (response) {
+                            console.log(response);
+                            path = response.replace('/', '');
+                            return api[path].get();
+                        })
+                            .then(function (response) { console.log(response); todoApp.view.todo.push(response.node); console.log(todoApp.view.todo);});
                     }
                     form.newItem.value = '';
+
                 },
                 delTodo: function (el, value) {
-                    //Verwijder uit database 
-                    //nu alleen HTML
-                    //Need ID
-                    //api.delete(api.view.todo.id);
-                    //document.body.children[0].textContent;
-                    //alert(el.closest('ul').closest('li').children[0].textContent);
-                    //alert(el.parentElement.first)
-                    //var id = todoApp.view.items
-                    //alert('test a test neef');
-                    //alert(el.closest('ul').closest('li').textContent);
-                    var delIdSpan = el.parentElement.parentElement.getElementsByTagName('span')[0].innerText;
-                    var delId = 'http://backend.local/node/' + delIdSpan.replace('/', '');
-                    alert(delId);
-                    api.delete(delId);
-                        //.innerText);
-                        //.closest('li').firstChild.textContent);
-                    el.closest('ul').removeChild(el.closest('li'));
+                    var delPathUncut = el.closest('li').querySelector('.pathInput').value;
+                    var delPath = delPathUncut.replace('/', '');
+                    api[delPath].delete().then(function (response) { console.log(response); });
+
+                    el.closest('li').remove();
+                    console.log('volgende log is view.todo: ');
+                    console.log(todoApp.view.todo);
+                    if (todoApp.view.todo.length != 0) {
+                        todoApp.view.todo.forEach(function (item, index) {
+                                item.data.order = index + 1;
+                                api[item.path.replace('/', '')].patch({ order: index + 1 }).then(function (response) { console.log(response); });      //Zorgt voor error maar doet het wel
+                                
+                            }
+                        )
+                    }
                 },
-                editTodo: function (el, value) {
-                    //Need ID
-                    var item = el.closest('li');
-                    var input = item.querySelector('input[type="text"]');
-                    
-                    item.classList.add('editing');
+                editTodo: function (ele, value) {
+                    var itemLiPre = ele.closest('li');
+                    var input = itemLiPre.querySelector('input[type="text"]');
+
+                    itemLiPre.classList.add('editing');
                     input.focus();
                     
-                    input.addEventListener('blur', function() {
+                    input.addEventListener('blur', function () {
                         input.removeEventListener('keyup', keyEscape);
-                        todoApp.commands.call('showTodo', input);
+                        todoApp.commands.call('showTodo', input, itemLiPre);
                     }, { once: true });
                     
                     var keyEscape = function(evt) {
                         if (["Escape","Cancel"].indexOf(evt.key)!=-1) {
-                            input.value = item.querySelector('label[data-simply-field="item"]').innerHTML;
+                            input.value = itemLiPre.querySelector('label[data-simply-field="data.item"]').innerHTML;
                         }
                         if (["Escape","Cancel","Enter"].indexOf(evt.key)!=-1) {
-                            todoApp.commands.call('showTodo', input);
+                            todoApp.commands.call('showTodo', input, itemLiPre);
                         }
                     };
                     input.addEventListener('keyup', keyEscape);
                 },
-                showTodo: function(el, value) {
-                    el.closest('li').classList.remove('editing');
-                    el.blur();
+                showTodo: function(elem, itemLi, value) {
+                    elem.closest('li').classList.remove('editing');
+                    elem.blur();
+                    
+                    console.log('itemLi = ' + itemLi);
+                    var patchPathUncut = itemLi.querySelector('.pathInput').value;                   //Krijg hier een error, maar het werkt wel...
+                    var patchPath = patchPathUncut.replace('/', '');
+                    var patchItem = {
+                        item: elem.value,
+                        completed: 0
+                    };
+                    api[patchPath].patch(patchItem).then(function (response) { console.log('patch response: ' + response); }); //Test database update
                 }
-            }//,
-            //view: {}
+            },
+            view: {}
             
         });
 
-        api.get().then(function (node) { todoApp.view.todo = Object.values(node.nodes); });
+
+
 
         // 3: update the counter whenever the list changes
         document.addEventListener('simply-data-changed', function(evt) {
-            if (evt.data.arguments[0]=='todo') {
-                todoApp.view.count = todoApp.view.todo.length;
+            if (evt.data.arguments[0] == 'todo') {
+                if (todoApp.view.todo.length != null) {
+                    todoApp.view.count = todoApp.view.todo.length;
+                } else {
+                    todoApp.view.count = 0;
+                }
             }
-        });
-
-        document.addEventListener('simply-data-changed', function(evt) {
-            localStorage.setItem('simplyTodo', JSON.stringify(todoApp.view.todo));  //Hier Cache update
-
-            api.todo.put(todoApp.view.todo);                                         //Hier update ie de database met nieuwe waardes
         });
 
         // 6: drag and drop items to reorder them
         var todoList = document.querySelector('ul.todo-list');
-
-        todoList.addEventListener('slip:reorder', function(e){
+        
+        todoList.addEventListener('slip:reorder', function (e) {
             e.target.parentNode.insertBefore(e.target, e.detail.insertBefore);
+            
+            if (todoApp.view.todo.length != 0) {
+                todoApp.view.todo.forEach(function (item, index) {
+                    api[item.path.replace('/', '')].patch({ order: index + 1 }).then(function (response) { console.log(response); });      //Zorgt voor error maar doet het wel
+                    item.data.order = index + 1;
+                }
+                )
+            }
+            
+            console.log(todoApp.view.todo);
         });
 
         // 7: swipe to remove an item
         todoList.addEventListener('slip:swipe', function(e) {
-            e.target.parentNode.removeChild(e.target);
+            var delItem = e.target;
+            //delItem.parentNode.removeChild(delItem);      //Eerst parent en dan weer child is toch onnodige extra stap?
+            delItem.remove();
+            var delPathUncut = delItem.closest('li').querySelector('.pathInput').value;
+            var delPath = delPathUncut.replace('/', '');
+            api[delPath].delete().then(function (response) { console.log(response); });
         });
 
         new Slip(todoList);
