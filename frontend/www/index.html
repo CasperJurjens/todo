@@ -28,7 +28,6 @@
                 <ul class="todo-list" data-simply-list="todo"> <!-- Hier herkent ie de view.todo -->
                     <template>
                         <li>
-                            <span data-simply-field="data.order">0</span>
                             <input class="pathInput" data-simply-field="path" type="hidden" />
                             <input type="checkbox" class="toggle" data-simply-field="completed" value="1">
                             <div class="view">
@@ -44,8 +43,8 @@
             <footer class="footer">
                 <span class="todo-count" data-simply-field="count" data-simply-content="template" data-simply-default-template="other">
                     Nothing left todo!                                                                                                    <!--Dit doet het niet tijdens eerste keer laden v pagina-->
-                    <template data-simply-template="0">Nothing left todo!</template>
-                    <template data-simply-template="1"><strong>1</strong> item left</template>
+                    <template data-simply-template="0"><input type="hidden" data-simply-field="count"> left todo!</template>
+                    <template data-simply-template="1"><strong data-simply-field="count">1</strong> item left</template>
                     <template data-simply-template="other"><strong data-simply-field="count">n</strong> items left</template>
                 </span>
             </footer>
@@ -108,16 +107,17 @@
                     api[delPath].delete().then(function (response) { console.log(response); });
 
                     el.closest('li').remove();
-                    console.log('volgende log is view.todo: ');
-                    console.log(todoApp.view.todo);
-                    if (todoApp.view.todo.length != 0) {
-                        todoApp.view.todo.forEach(function (item, index) {
-                                item.data.order = index + 1;
-                                api[item.path.replace('/', '')].patch({ order: index + 1 }).then(function (response) { console.log(response); });      //Zorgt voor error maar doet het wel
-                                
-                            }
-                        )
-                    }
+                    window.setTimeout(function() {                    
+                        console.log('volgende log is view.todo: ');
+                        console.log(todoApp.view.todo);
+                        if (todoApp.view.todo.length != 0) {
+                            todoApp.view.todo.forEach(function (item, index) {
+                                    item.data.order = index + 1;
+                                    api[item.path.replace('/', '')].patch({ order: index + 1 }).then(function (response) { console.log(response); });      //Zorgt voor error maar doet het wel
+                                }
+                            );
+                        }
+                    }, 100);
                 },
                 editTodo: function (ele, value) {
                     var itemLiPre = ele.closest('li');
@@ -166,7 +166,8 @@
         document.addEventListener('simply-data-changed', function(evt) {
             if (evt.data.arguments[0] == 'todo') {
                 if (todoApp.view.todo.length != null) {
-                    todoApp.view.count = todoApp.view.todo.length;
+                    var count = todoApp.view.todo.length;
+                    todoApp.view.count = count;
                 } else {
                     todoApp.view.count = 0;
                 }
@@ -183,8 +184,7 @@
                 todoApp.view.todo.forEach(function (item, index) {
                     api[item.path.replace('/', '')].patch({ order: index + 1 }).then(function (response) { console.log(response); });      //Zorgt voor error maar doet het wel
                     item.data.order = index + 1;
-                }
-                )
+                })
             }
             
             console.log(todoApp.view.todo);
